@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { GoogleGenAI, Modality } from "@google/genai";
+import { EndSensitivity, GoogleGenAI, Modality, StartSensitivity } from "@google/genai";
 import { LIVE_MODEL, SYSTEM_PROMPT, TOOL_DECLARATIONS } from "@/lib/voice/agent-config";
 
 // Mints a short-lived, single-use token so the browser can talk to Gemini Live
@@ -26,6 +26,15 @@ export const Route = createFileRoute("/api/live-token")({
                   responseModalities: [Modality.AUDIO],
                   systemInstruction: SYSTEM_PROMPT,
                   tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
+                  // Hear the visitor quickly (barge-in) but wait for them to finish their sentence.
+                  realtimeInputConfig: {
+                    automaticActivityDetection: {
+                      startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
+                      endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
+                      prefixPaddingMs: 150,
+                      silenceDurationMs: 900,
+                    },
+                  },
                   inputAudioTranscription: {},
                   outputAudioTranscription: {},
                 },

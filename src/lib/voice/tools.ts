@@ -3,7 +3,7 @@ import { voiceUi, type Personalization, type Pitch } from "./ui-store";
 
 type Args = Record<string, unknown>;
 type Navigate = (path: string) => Promise<void>;
-export type Hooks = { startPresentation: () => void; stopPresentation: () => void };
+export type Hooks = { startPresentation: () => void; stopPresentation: () => void; resumePresentation: () => void };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -33,6 +33,10 @@ export async function runTool(name: string, args: Args, navigate: Navigate, hook
       hooks?.startPresentation();
       return { ok: true, note: "Presentation starting. The system will put each slide on screen and tell you what to say. Do not call any more tools for it." };
     }
+    case "resume_presentation": {
+      hooks?.resumePresentation();
+      return { ok: true, note: "Resuming. The system will put the next slide on screen and tell you what to say. Say nothing about it now." };
+    }
     case "stop_presentation": {
       hooks?.stopPresentation();
       return { ok: true };
@@ -46,7 +50,9 @@ export async function runTool(name: string, args: Args, navigate: Navigate, hook
     }
     case "scroll_to": {
       const t = String(args.section_text ?? "").toLowerCase();
-      if (t === "top") window.scrollTo({ top: 0, behavior: "smooth" });
+      if (["down", "next", "further"].includes(t)) window.scrollBy({ top: window.innerHeight * 0.8, behavior: "smooth" });
+      else if (["up", "previous", "back"].includes(t)) window.scrollBy({ top: -window.innerHeight * 0.8, behavior: "smooth" });
+      else if (t === "top") window.scrollTo({ top: 0, behavior: "smooth" });
       else if (t === "bottom") window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
       else {
         const h = [...document.querySelectorAll<HTMLElement>("main h1, main h2, main h3")].find((e) =>

@@ -28,6 +28,7 @@ export default function VoiceAgent() {
   const player = useRef<Player | null>(null);
   const advTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const heardSinceNarrate = useRef(false);
+  const pausedRef = useRef(false); // visitor spoke mid-presentation: wait for them, do not auto-advance
 
   const addText = useCallback((role: Line["role"], text: string) => {
     setLines((prev) => {
@@ -54,6 +55,7 @@ export default function VoiceAgent() {
   const narrate = useCallback((i: number) => {
     const slide = SLIDES[i];
     heardSinceNarrate.current = false;
+    pausedRef.current = false;
     voiceUi.set({ presentation: { active: true, index: i } });
     sendSystem(`Slide ${i + 1} of ${SLIDES.length} is now on screen: "${slide.title}" (${slide.tagline}). Narrate it in 3-4 natural sentences using these facts: ${slide.notes}`);
   }, [sendSystem]);
@@ -68,14 +70,14 @@ export default function VoiceAgent() {
 
   // After the model finishes a turn and its audio has played out, move on to the next slide.
   const onTurnComplete = useCallback(() => {
-    if (!voiceUi.get().presentation.active || !heardSinceNarrate.current) return;
+    if (!voiceUi.get().presentation.active || !heardSinceNarrate.current || pausedRef.current) return;
     clearTimeout(advTimer.current);
     const check = () => {
-      if (!voiceUi.get().presentation.active) return;
+      if (!voiceUi.get().presentation.active || pausedRef.current) return;
       if ((player.current?.remainingMs() ?? 0) > 250) { advTimer.current = setTimeout(check, 400); return; }
       advance();
     };
-    advTimer.current = setTimeout(check, 1500);
+    advTimer.current = setTimeout(check, 2500);
   }, [advance]);
 
   const beginPresentation = useCallback(async () => {
@@ -83,9 +85,10 @@ export default function VoiceAgent() {
     narrate(0);
   }, [navigate, narrate]);
 
-  const hooks = useRef({ startPresentation: () => {}, stopPresentation: () => {} });
+  const hooks = useRef({ startPresentation: () => {}, stopPresentation: () => {}, resumePresentation: () => {} });
   hooks.current = {
     startPresentation: () => { setTimeout(() => { void beginPresentation(); }, 700); },
+    resumePresentation: () => { setTimeout(advance, 600); },
     stopPresentation: () => { clearTimeout(advTimer.current); voiceUi.set({ presentation: { ...voiceUi.get().presentation, active: false } }); },
   };
 
@@ -100,6 +103,7 @@ export default function VoiceAgent() {
     if (m.serverContent?.interrupted) player.current?.interrupt();
     if (m.serverContent?.inputTranscription?.text) {
       clearTimeout(advTimer.current); // visitor is speaking: hold the slides
+      if (voiceUi.get().presentation.active) pausedRef.current = true;
       addText("you", m.serverContent.inputTranscription.text);
     }
     if (m.serverContent?.outputTranscription?.text) addText("thrust", m.serverContent.outputTranscription.text);

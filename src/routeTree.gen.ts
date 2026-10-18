@@ -9,33 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AboutRouteImport } from './routes/about'
-import { Route as AiProductsRouteImport } from './routes/ai-products'
-import { Route as ContactRouteImport } from './routes/contact'
-import { Route as PresentationRouteImport } from './routes/presentation'
 import { Route as ServicesRouteImport } from './routes/services'
-import { Route as ApiLeadRouteImport } from './routes/api.lead'
+import { Route as PresentationRouteImport } from './routes/presentation'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as AiProductsRouteImport } from './routes/ai-products'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiLiveTokenRouteImport } from './routes/api.live-token'
+import { Route as ApiLeadRouteImport } from './routes/api.lead'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AiProductsRoute = AiProductsRouteImport.update({
-  id: '/ai-products',
-  path: '/ai-products',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ContactRoute = ContactRouteImport.update({
-  id: '/contact',
-  path: '/contact',
+const ServicesRoute = ServicesRouteImport.update({
+  id: '/services',
+  path: '/services',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PresentationRoute = PresentationRouteImport.update({
@@ -43,19 +28,34 @@ const PresentationRoute = PresentationRouteImport.update({
   path: '/presentation',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ServicesRoute = ServicesRouteImport.update({
-  id: '/services',
-  path: '/services',
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiLeadRoute = ApiLeadRouteImport.update({
-  id: '/api/lead',
-  path: '/api/lead',
+const AiProductsRoute = AiProductsRouteImport.update({
+  id: '/ai-products',
+  path: '/ai-products',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiLiveTokenRoute = ApiLiveTokenRouteImport.update({
   id: '/api/live-token',
   path: '/api/live-token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLeadRoute = ApiLeadRouteImport.update({
+  id: '/api/lead',
+  path: '/api/lead',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -136,32 +136,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/ai-products': {
-      id: '/ai-products'
-      path: '/ai-products'
-      fullPath: '/ai-products'
-      preLoaderRoute: typeof AiProductsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/contact': {
-      id: '/contact'
-      path: '/contact'
-      fullPath: '/contact'
-      preLoaderRoute: typeof ContactRouteImport
+    '/services': {
+      id: '/services'
+      path: '/services'
+      fullPath: '/services'
+      preLoaderRoute: typeof ServicesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/presentation': {
@@ -171,18 +150,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PresentationRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/services': {
-      id: '/services'
-      path: '/services'
-      fullPath: '/services'
-      preLoaderRoute: typeof ServicesRouteImport
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/lead': {
-      id: '/api/lead'
-      path: '/api/lead'
-      fullPath: '/api/lead'
-      preLoaderRoute: typeof ApiLeadRouteImport
+    '/ai-products': {
+      id: '/ai-products'
+      path: '/ai-products'
+      fullPath: '/ai-products'
+      preLoaderRoute: typeof AiProductsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/live-token': {
@@ -190,6 +183,13 @@ declare module '@tanstack/react-router' {
       path: '/api/live-token'
       fullPath: '/api/live-token'
       preLoaderRoute: typeof ApiLiveTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/lead': {
+      id: '/api/lead'
+      path: '/api/lead'
+      fullPath: '/api/lead'
+      preLoaderRoute: typeof ApiLeadRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
