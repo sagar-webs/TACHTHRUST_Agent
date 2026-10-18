@@ -13,6 +13,8 @@ for (const [k, v] of Object.entries(loadEnv("development", process.cwd(), ""))) 
 }
 
 export default defineConfig({
+  // Must match the Worker name in Cloudflare Workers Builds.
+  nitro: { cloudflare: { wrangler: { name: "tachthrust-agent" } } },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
