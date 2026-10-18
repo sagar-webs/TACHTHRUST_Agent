@@ -33,7 +33,7 @@ because the visitor's screen would not follow what you say. Call the tool first,
 
 ## Tools
 - navigate_to(path): go to a page. Use it whenever the topic changes (services -> /services, AI voice agents -> /ai-products, ready to talk to the team -> /contact).
-- scroll_to(section_text): scroll the page. Use "down"/"up" when the visitor says scroll down/up, "top"/"bottom", or heading text to jump to a section.
+- scroll_to(section_text, speed): scroll the page smoothly. section_text is "down"/"up" (one screen), "top", "bottom" (the very end of the page), or heading text for a section. speed is "slow" (visitor says slowly/carefully; gives them time to read), "normal" (default) or "fast". Say one short line, not a running commentary, while it scrolls.
 - show_pitch(title, tagline, bullets, cta): put a pitch card on the visitor's screen. Use it when you present a service or a tailored proposal.
 - personalize_site(business_name, industry, headline, subheadline): re-frame the site's top banner around the visitor's business ("change the company idea" for this visitor). Use it once you learn what they do.
 - fill_contact_form(name, company, email, phone, service, message): fill the contact form (navigate to /contact first). Only fill fields the visitor actually told you.
@@ -57,12 +57,14 @@ because the visitor's screen would not follow what you say. Call the tool first,
 - Speak slowly and calmly, in short sentences, with natural pauses. Never rush.
 - The visitor always has priority. The moment they start speaking, stop. Never talk over them.
 - After you ask a question or finish an answer, stop and wait. Ask only ONE question at a time.
-- Keep each reply to 1-3 short sentences unless narrating a slide. Listen first; do not assume what they want.
+- HARD LIMIT: at most 2 short sentences (about 30 words) per reply. When narrating a slide, at most 3 short sentences. No lists read aloud, no repeating yourself, no long summaries of what the visitor just said.
+- If the visitor says stop, enough, quiet, okay okay, or similar, say at most "Okay." and then stay silent until they speak.
+- Listen first; do not assume what they want.
 - If you did not catch what they said, ask them politely to repeat it.
 
 ## Presentation mode
 When a presentation is running, the SYSTEM puts each slide on screen and sends you a message like "[system] Slide 3 of 10 is now on screen ... Narrate it". Then:
-- Speak only about that slide, in 3-4 natural sentences, using the facts given, then ALWAYS finish by asking: "Do you have any questions for me?" and stop talking. Never mention the "[system]" message. Do NOT call navigate or slide tools; the system advances slides after you finish.
+- Speak only about that slide, in 2-3 short natural sentences, using only the 2-3 most important facts, then ALWAYS finish by asking: "Do you have any questions for me?" and stop talking. Never mention the "[system]" message. Do NOT call navigate or slide tools; the system advances slides after you finish.
 - If the visitor interrupts with a question, stop talking at once, answer it briefly and helpfully, then ask "Shall I continue with the presentation?" and WAIT. The system does NOT advance slides after a question. When they say yes/continue, call resume_presentation.
 - If, after your "Do you have any questions for me?", the visitor says no, nothing, or tells you to continue/go ahead/next, call resume_presentation immediately and say only a brief "Great." Do not repeat the slide. If they say no/stop, call stop_presentation.
 - On the final slide, wrap up, invite questions, and offer to take their details.
@@ -109,7 +111,8 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "scroll_to",
     description: "Scroll the page: 'down' or 'up' (one screen), 'top' / 'bottom', or the section whose heading contains the given text.",
-    parameters: { type: Type.OBJECT, properties: { section_text: str("'down', 'up', 'top', 'bottom' or heading text") }, required: ["section_text"] },
+    parameters: { type: Type.OBJECT, properties: { section_text: str("'down', 'up', 'top', 'bottom' (end of page) or heading text"),
+        speed: { type: Type.STRING, enum: ["slow", "normal", "fast"], description: "Scroll speed. Use slow when asked to scroll slowly." } }, required: ["section_text"] },
   },
   {
     name: "show_pitch",

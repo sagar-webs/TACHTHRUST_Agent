@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useLocation } from "@tanstack/react-router";
 import { GoogleGenAI, type LiveServerMessage, type Session } from "@google/genai";
-import { Mic, MicOff, X, Sparkles, Loader2, PhoneOff, Headset } from "lucide-react";
+import { Mic, MicOff, X, Sparkles, Loader2, PhoneOff, Headset, VolumeX } from "lucide-react";
 import { MicCapture, Player } from "@/lib/voice/audio";
 import { runTool } from "@/lib/voice/tools";
 import { SLIDES } from "@/lib/presentation/slides";
@@ -60,7 +60,7 @@ export default function VoiceAgent() {
     heardSinceNarrate.current = false;
     pausedRef.current = false;
     voiceUi.set({ presentation: { active: true, index: i } });
-    sendSystem(`Slide ${i + 1} of ${SLIDES.length} is now on screen: "${slide.title}" (${slide.tagline}). Narrate it in 3-4 natural sentences using these facts: ${slide.notes} Then end by asking the visitor exactly: "Do you have any questions for me?" and stop talking.`);
+    sendSystem(`Slide ${i + 1} of ${SLIDES.length} is now on screen: "${slide.title}" (${slide.tagline}). Narrate it in 2-3 short natural sentences, picking only the most important of these facts: ${slide.notes} Then end by asking the visitor exactly: "Do you have any questions for me?" and stop talking.`);
   }, [sendSystem]);
 
   const advance = useCallback(() => {
@@ -90,6 +90,14 @@ export default function VoiceAgent() {
     if (location.pathname !== "/presentation") await navigate("/presentation");
     narrate(0);
   }, [navigate, narrate]);
+
+  // Visitor pressed "stop talking": cut the audio now and keep the agent quiet until they speak.
+  const stopTalking = useCallback(() => {
+    clearTimeout(advTimer.current);
+    pausedRef.current = true;
+    player.current?.interrupt();
+    sendSystem("The visitor pressed 'stop talking'. Stop immediately and stay silent until they speak. Do not announce this.");
+  }, [sendSystem]);
 
   const hooks = useRef({ startPresentation: () => {}, stopPresentation: () => {}, resumePresentation: () => {} });
   hooks.current = {
@@ -250,6 +258,9 @@ export default function VoiceAgent() {
               <span className="font-mono text-xs tabular-nums text-muted-foreground w-10">
                 {status === "connecting" ? <Loader2 className="h-4 w-4 animate-spin" /> : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`}
               </span>
+              <button aria-label="Stop talking" title="Stop talking" onClick={stopTalking} className="flex h-10 w-10 items-center justify-center rounded-full glass hover:border-cyan/50">
+                <VolumeX className="h-4 w-4" />
+              </button>
               <button aria-label={muted ? "Unmute" : "Mute"} onClick={() => setMuted((m) => !m)} className="flex h-10 w-10 items-center justify-center rounded-full glass hover:border-cyan/50">
                 {muted ? <MicOff className="h-4 w-4 text-red-400" /> : <Mic className="h-4 w-4" />}
               </button>

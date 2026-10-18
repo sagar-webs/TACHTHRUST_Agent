@@ -27,6 +27,39 @@ function setValue(el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
 }
 
 
+// Eased, cancellable scrolling at a readable speed. Any wheel/touch/key/mouse input by the visitor stops it.
+let scrollRaf = 0;
+// px per second, with a cap on total time so very long pages still finish in a reasonable time
+const SPEEDS: Record<string, { pxPerSec: number; maxSec: number }> = {
+  slow: { pxPerSec: 220, maxSec: 35 },
+  normal: { pxPerSec: 600, maxSec: 14 },
+  fast: { pxPerSec: 1500, maxSec: 6 },
+};
+
+function animateScroll(targetY: number, speed: string) {
+  cancelAnimationFrame(scrollRaf);
+  const startY = window.scrollY;
+  const maxY = document.documentElement.scrollHeight - window.innerHeight;
+  const to = Math.max(0, Math.min(maxY, targetY));
+  const dist = to - startY;
+  if (Math.abs(dist) < 2) return;
+  const sp = SPEEDS[speed] ?? SPEEDS.normal;
+  const dur = Math.max(500, Math.min(sp.maxSec, Math.abs(dist) / sp.pxPerSec) * 1000);
+  const events = ["wheel", "touchstart", "keydown", "mousedown"] as const;
+  const cleanup = () => events.forEach((e) => window.removeEventListener(e, cancel));
+  const cancel = () => { cancelAnimationFrame(scrollRaf); cleanup(); };
+  events.forEach((e) => window.addEventListener(e, cancel, { passive: true }));
+  const ease = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2; // gentle sine in-out
+  const t0 = performance.now();
+  const step = (now: number) => {
+    const p = Math.min(1, (now - t0) / dur);
+    window.scrollTo({ top: startY + dist * ease(p), behavior: "instant" });
+    if (p < 1) scrollRaf = requestAnimationFrame(step);
+    else cleanup();
+  };
+  scrollRaf = requestAnimationFrame(step);
+}
+
 // --- Generic page control: find and click visible buttons/links by their label ---
 const CLICKABLE = 'a[href], button, [role="button"], [role="tab"], summary, input[type="button"], input[type="submit"]';
 
@@ -81,18 +114,20 @@ export async function runTool(name: string, args: Args, navigate: Navigate, hook
     }
     case "scroll_to": {
       const t = String(args.section_text ?? "").toLowerCase();
-      if (["down", "next", "further"].includes(t)) window.scrollBy({ top: window.innerHeight * 0.8, behavior: "smooth" });
-      else if (["up", "previous", "back"].includes(t)) window.scrollBy({ top: -window.innerHeight * 0.8, behavior: "smooth" });
-      else if (t === "top") window.scrollTo({ top: 0, behavior: "smooth" });
-      else if (t === "bottom") window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+      const speed = ["slow", "normal", "fast"].includes(String(args.speed)) ? String(args.speed) : "normal";
+      const maxY = document.documentElement.scrollHeight - window.innerHeight;
+      if (["down", "next", "further"].includes(t)) animateScroll(window.scrollY + window.innerHeight * 0.8, speed);
+      else if (["up", "previous", "back"].includes(t)) animateScroll(window.scrollY - window.innerHeight * 0.8, speed);
+      else if (["top", "start", "beginning"].includes(t)) animateScroll(0, speed);
+      else if (["bottom", "end", "footer"].includes(t)) animateScroll(maxY, speed);
       else {
         const h = [...document.querySelectorAll<HTMLElement>("main h1, main h2, main h3")].find((e) =>
           e.textContent?.toLowerCase().includes(t),
         );
         if (!h) return { ok: false, error: "section not found" };
-        h.scrollIntoView({ behavior: "smooth", block: "center" });
+        animateScroll(h.getBoundingClientRect().top + window.scrollY - window.innerHeight / 3, speed);
       }
-      return { ok: true };
+      return { ok: true, scrolling: true, speed, note: "Scrolling is animated and takes a few seconds; the visitor can stop it by scrolling themselves." };
     }
     case "show_pitch": {
       voiceUi.set({
