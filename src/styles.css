@@ -1,0 +1,205 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-cyan: var(--cyan);
+  --color-yellow: var(--yellow);
+  --color-glass: var(--glass);
+  --color-glass-border: var(--glass-border);
+  --font-display: "Syne", sans-serif;
+  --font-sans: "DM Sans", sans-serif;
+  --font-mono: "Space Mono", monospace;
+}
+
+:root {
+  --radius: 0.75rem;
+  --background: #080B14;
+  --foreground: #FFFFFF;
+  --card: #0d111e;
+  --card-foreground: #FFFFFF;
+  --popover: #0d111e;
+  --popover-foreground: #FFFFFF;
+  --primary: #00D4FF;
+  --primary-foreground: #080B14;
+  --secondary: #ffde32;
+  --secondary-foreground: #080B14;
+  --muted: #11162280;
+  --muted-foreground: #A0ADB8;
+  --accent: #00D4FF;
+  --accent-foreground: #080B14;
+  --destructive: #ff4d6d;
+  --destructive-foreground: #FFFFFF;
+  --border: rgba(255,255,255,0.08);
+  --input: rgba(255,255,255,0.08);
+  --ring: #00D4FF;
+  --cyan: #00D4FF;
+  --yellow: #ffde32;
+  --glass: rgba(255,255,255,0.04);
+  --glass-border: rgba(255,255,255,0.08);
+  --gradient-primary: linear-gradient(135deg, #00D4FF 0%, #ffde32 100%);
+  --gradient-text: linear-gradient(135deg, #00D4FF 0%, #ffde32 100%);
+  --gradient-radial: radial-gradient(circle at 50% 0%, rgba(0,212,255,0.15), transparent 60%);
+  --shadow-glow: 0 0 40px rgba(0,212,255,0.35);
+  --shadow-glow-yellow: 0 0 40px rgba(255,222,50,0.3);
+}
+
+.dark { color-scheme: dark; }
+
+html { scroll-behavior: smooth; }
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html, body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,h2,h3,h4 { font-family: var(--font-display); letter-spacing: -0.02em; }
+  ::selection { background: var(--cyan); color: #080B14; }
+}
+
+@utility glass {
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px) saturate(140%);
+  border-radius: var(--radius);
+}
+
+@utility text-gradient {
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility btn-glow {
+  background: var(--gradient-primary);
+  color: #080B14;
+  font-weight: 600;
+  box-shadow: 0 0 30px rgba(0,212,255,0.4);
+  transition: all 0.3s ease;
+}
+@utility btn-glow-hover {
+  &:hover { box-shadow: 0 0 50px rgba(0,212,255,0.6), 0 0 80px rgba(255,222,50,0.3); transform: translateY(-2px); }
+}
+
+@utility gradient-border-card {
+  position: relative;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(20px);
+  transition: all 0.4s ease;
+  &::before {
+    content: "";
+    position: absolute; inset: 0;
+    border-radius: var(--radius);
+    padding: 1px;
+    background: linear-gradient(135deg, transparent, transparent);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    transition: background 0.4s ease;
+    pointer-events: none;
+  }
+  &:hover::before { background: linear-gradient(135deg, #00D4FF, #ffde32); }
+  &:hover { transform: translateY(-4px); }
+}
+
+@utility gradient-border-yellow {
+  position: relative;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(20px);
+  transition: all 0.4s ease;
+  &::before {
+    content: "";
+    position: absolute; inset: 0;
+    border-radius: var(--radius);
+    padding: 1px;
+    background: linear-gradient(135deg, transparent, transparent);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    transition: background 0.4s ease;
+    pointer-events: none;
+  }
+  &:hover::before { background: linear-gradient(135deg, #ffde32, #ffb347); }
+  &:hover { transform: translateY(-4px); }
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@utility animate-marquee { animation: marquee 40s linear infinite; }
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(0,212,255,0.4); }
+  50% { box-shadow: 0 0 40px rgba(0,212,255,0.7), 0 0 60px rgba(255,222,50,0.3); }
+}
+@utility animate-pulse-glow { animation: pulse-glow 2.5s ease-in-out infinite; }
+
+@keyframes echo-wave {
+  0% { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+@utility echo-wave {
+  &::before, &::after {
+    content: "";
+    position: absolute; inset: 0;
+    border-radius: inherit;
+    border: 2px solid #ff7a18;
+    animation: echo-wave 1.8s ease-out infinite;
+    pointer-events: none;
+  }
+  &::after { animation-delay: 0.9s; }
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+@utility caret { display: inline-block; width: 3px; background: var(--cyan); margin-left: 4px; animation: blink 1s step-end infinite; }
+
+@keyframes float-orb {
+  0%, 100% { transform: translate(0,0) scale(1); }
+  50% { transform: translate(20px,-30px) scale(1.1); }
+}
+@utility animate-orb { animation: float-orb 8s ease-in-out infinite; }
+
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@utility animate-float { animation: float-y 3.2s ease-in-out infinite; }
+
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+@utility animate-spin-slow { animation: spin-slow 8s linear infinite; }
