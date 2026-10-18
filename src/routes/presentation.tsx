@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { ChevronLeft, ChevronRight, Play, Square, Sparkles } from "lucide-react";
 import { SLIDES } from "@/lib/presentation/slides";
+import SlideVisual from "@/components/site/SlideVisual";
 import { useVoiceUi, voiceUi } from "@/lib/voice/ui-store";
 
 export const Route = createFileRoute("/presentation")({
@@ -46,17 +47,24 @@ function PresentationPage() {
           )}
         </div>
 
-        <div key={slide.id} className="mt-6 gradient-border-card p-8 md:p-14 min-h-[26rem] relative overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
+        <div key={slide.id} className="mt-6 gradient-border-card p-8 md:p-14 min-h-[28rem] relative overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
           <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 80% 0%, rgba(0,212,255,0.16), transparent 60%)" }} />
           <div className="relative">
             <span className="font-mono text-xs uppercase tracking-widest text-cyan">// {slide.kicker}</span>
             <h1 className="mt-4 font-display text-4xl md:text-6xl font-bold leading-[1.05] text-gradient">{slide.title}</h1>
             <p className="mt-4 text-lg md:text-xl text-muted-foreground max-w-3xl">{slide.tagline}</p>
-            <ul className="mt-8 grid md:grid-cols-2 gap-x-8 gap-y-3 text-base">
-              {slide.bullets.map((b) => (
-                <li key={b} className="flex gap-3"><Sparkles className="h-5 w-5 text-cyan shrink-0 mt-0.5" />{b}</li>
-              ))}
-            </ul>
+            <div className={`mt-8 grid gap-8 ${slide.visuals ? "lg:grid-cols-[1fr_1.2fr] items-start" : ""}`}>
+              <ul className={`grid gap-y-3 text-base ${slide.visuals ? "" : "md:grid-cols-2 gap-x-8"}`}>
+                {slide.bullets.map((b) => (
+                  <li key={b} className="flex gap-3"><Sparkles className="h-5 w-5 text-cyan shrink-0 mt-0.5" />{b}</li>
+                ))}
+              </ul>
+              {slide.visuals && (
+                <div className="space-y-4">
+                  {slide.visuals.map((v, n) => <SlideVisual key={n} v={v} />)}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

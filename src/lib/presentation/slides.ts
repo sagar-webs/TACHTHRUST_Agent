@@ -1,5 +1,13 @@
 // Slide content is sourced from the live site copy (home, /services, /ai-products, /about).
-export type Slide = { id: string; kicker: string; title: string; tagline: string; bullets: string[]; notes: string };
+export type ChartPoint = { label: string; value: number };
+export type Visual =
+  | { type: "bars"; title: string; unit: string; data: ChartPoint[]; source: string }
+  | { type: "area"; title: string; unit: string; data: ChartPoint[]; source: string }
+  | { type: "compare"; head: [string, string, string]; rows: [string, string, string][] }
+  | { type: "flow"; steps: { label: string; sub: string }[] }
+  | { type: "chips"; items: string[] };
+
+export type Slide = { id: string; kicker: string; title: string; tagline: string; bullets: string[]; notes: string; visuals?: Visual[] };
 
 export const SLIDES: Slide[] = [
   {
@@ -7,8 +15,44 @@ export const SLIDES: Slide[] = [
     kicker: "WELCOME",
     title: "TechThrust",
     tagline: "Digital systems that generate leads and scale businesses.",
-    bullets: ["AI-native digital growth agency", "Tech Thrust Digital Solutions FZC, Ajman Free Zone, UAE", "Serving UAE & GCC, India, USA & Canada, UK, EU and Australia"],
+    bullets: ["AI-native digital growth agency", "Tech Thrust Digital Solutions FZC, Ajman Free Zone, UAE"],
+    visuals: [{ type: "chips", items: ["UAE & GCC", "India", "USA & Canada", "United Kingdom", "European Union", "Australia"] }],
     notes: "TechThrust is an AI-native digital growth agency, registered as Tech Thrust Digital Solutions FZC in Ajman Free Zone, UAE. We engineer websites, apps, performance marketing and AI voice agents for ambitious global brands, serving six markets: UAE and GCC, India, USA and Canada, the UK, the European Union and Australia.",
+  },
+  {
+    id: "market",
+    kicker: "THE MARKET",
+    title: "Where the Market Is Heading",
+    tagline: "Digital advertising is growing fast in both of our home markets.",
+    bullets: ["India: roughly 14.5% a year growth", "UAE: roughly 14% a year growth", "Estimates vary by research firm; treat as indicative"],
+    visuals: [
+      {
+        type: "area", title: "India digital advertising market", unit: "$B",
+        data: [{ label: "2025", value: 8.2 }, { label: "2026", value: 9.4 }, { label: "2027", value: 10.8 }, { label: "2028", value: 12.3 }, { label: "2029", value: 14.1 }, { label: "2030", value: 16.2 }, { label: "2031", value: 18.5 }],
+        source: "Ken Research: $8.2B in 2025 to $18.5B in 2031 at 14.5% CAGR (years between are interpolated)",
+      },
+      {
+        type: "bars", title: "UAE digital advertising market", unit: "$B",
+        data: [{ label: "2025", value: 2.29 }, { label: "2026", value: 2.64 }, { label: "2029", value: 4.3 }, { label: "2032", value: 5.9 }],
+        source: "Ken Research, UAE digital advertising market forecast",
+      },
+    ],
+    notes: "Both of our home markets are growing fast. According to Ken Research estimates, India's digital advertising market is about 8.2 billion dollars in 2025 and is projected to reach about 18.5 billion by 2031, roughly 14.5 percent a year. The same firm estimates the UAE digital advertising market at about 2.3 billion dollars in 2025, rising to about 5.9 billion by 2032. Different research firms publish different numbers, so treat these as indicative. The message: more of every business's customers are found and won online, and the competition for them is growing.",
+  },
+  {
+    id: "voice-market",
+    kicker: "THE MARKET",
+    title: "AI Voice Is Taking Off",
+    tagline: "Businesses are moving calls and follow-ups to AI agents.",
+    bullets: ["Voice AI agents are among the fastest-growing software categories", "Analyst forecasts cluster around 30-40% yearly growth", "Estimates vary widely between firms"],
+    visuals: [
+      {
+        type: "bars", title: "Global AI voice agents market", unit: "$B",
+        data: [{ label: "2025", value: 2.54 }, { label: "2033", value: 35.24 }],
+        source: "Grand View Research (39% CAGR), as cited by CloudTalk. Other analysts publish different bases.",
+      },
+    ],
+    notes: "AI voice is one of the fastest-growing areas in business software. Grand View Research estimates the global AI voice agents market at about 2.5 billion dollars in 2025, growing to about 35 billion by 2033, around 39 percent a year. Other analysts use different definitions and publish different numbers, but they generally land between 30 and 40 percent annual growth. That is why TechThrust builds AI voice agents alongside websites and marketing.",
   },
   {
     id: "pillars",
@@ -16,6 +60,11 @@ export const SLIDES: Slide[] = [
     title: "Three Pillars, One Growth Ecosystem",
     tagline: "We don't run isolated initiatives. We build the system that compounds.",
     bullets: ["Web & App Development: engineering", "Digital Marketing: pipeline-filling performance", "AI Automation: voice agents and workflows"],
+    visuals: [{
+      type: "bars", title: "What we deliver: offerings per pillar", unit: "offerings",
+      data: [{ label: "Web & App", value: 8 }, { label: "Digital Marketing", value: 11 }, { label: "AI Voice", value: 8 }, { label: "AI Automation", value: 8 }],
+      source: "TechThrust service catalogue (35 offerings listed on this website)",
+    }],
     notes: "Our services sit on three integrated pillars: engineering, marketing and AI automation. They operate as one growth ecosystem rather than isolated initiatives, so each piece feeds the others and results compound.",
   },
   {
@@ -63,15 +112,26 @@ export const SLIDES: Slide[] = [
     kicker: "THE SYSTEM",
     title: "The Digital-AI Growth Engine",
     tagline: "From first click to scaled revenue, connected end to end.",
-    bullets: ["Attract: application development", "Capture: digital marketing", "Engage: lead generation", "Convert: smart CRM", "Optimize: AI calling agents", "Scale: insights & reporting"],
+    bullets: ["One connected system, not six separate vendors"],
+    visuals: [{ type: "flow", steps: [
+      { label: "Attract", sub: "App development" }, { label: "Capture", sub: "Digital marketing" }, { label: "Engage", sub: "Lead generation" },
+      { label: "Convert", sub: "Smart CRM" }, { label: "Optimize", sub: "AI calling agents" }, { label: "Scale", sub: "Insights & reporting" },
+    ] }],
     notes: "Everything connects in the Digital-AI Growth Engine. Application development attracts visitors, digital marketing captures them, lead generation engages them, a smart CRM converts them, AI calling agents optimize follow-up, and real-time insights and reporting help you scale.",
   },
   {
     id: "why",
-    kicker: "WHY TECHTHRUST",
+    kicker: "WHERE WE STAND",
     title: "Not Another Agency. A Growth System.",
     tagline: "Operators, not vendors.",
-    bullets: ["AI-native, not AI-added", "Outcomes over outputs: tied to your revenue KPIs", "Global operating model across UAE, India and partners", "Partnership mindset", "Values: innovation, transparency, results, partnership"],
+    bullets: ["Values: innovation, transparency, results, partnership"],
+    visuals: [{ type: "compare", head: ["", "Typical agency", "TechThrust"], rows: [
+      ["AI", "Added on later", "Native from day one"],
+      ["Success measured by", "Deliverables", "Your revenue KPIs"],
+      ["Scope", "One channel at a time", "Web, marketing and AI under one roof"],
+      ["Operating model", "Single location", "UAE, India and partner geographies"],
+      ["Relationship", "Vendor", "Operating partner"],
+    ] }],
     notes: "What makes us different: we are AI-native rather than AI-added, we measure success by your revenue rather than our deliverables, we operate globally across the UAE, India and partner geographies in your time zone, and we act as operators, not vendors. Our values are innovation, transparency with open dashboards and numbers, results, and long-term partnership.",
   },
   {
