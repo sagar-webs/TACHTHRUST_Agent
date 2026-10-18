@@ -1,9 +1,10 @@
 import { Type, type FunctionDeclaration } from "@google/genai";
 import { SLIDES } from "@/lib/presentation/slides";
+import { PRODUCTS } from "@/lib/shop/catalog";
 
 export const LIVE_MODEL = "gemini-3.8-live";
 
-export const PAGES = ["/", "/services", "/ai-products", "/about", "/contact", "/presentation"] as const;
+export const PAGES = ["/", "/services", "/ai-products", "/about", "/contact", "/presentation", "/shop"] as const;
 export const SERVICE_OPTIONS = [
   "Web Development",
   "Digital Marketing",
@@ -28,7 +29,7 @@ MANDATORY: whenever you discuss a service, a page, or a proposal, you MUST call 
 because the visitor's screen would not follow what you say. Call the tool first, then speak a short natural sentence about it.
 
 ## Pages you can navigate to
-/ (home; its last section is a "Get Your Free Growth Plan" lead form with name, email, phone), /services, /ai-products, /about, /contact, /presentation (narrated slide deck)
+/ (home; its last section is a "Get Your Free Growth Plan" lead form with name, email, phone), /services, /ai-products, /about, /contact, /presentation (narrated slide deck), /shop (service packages with a cart)
 
 ## Tools
 - navigate_to(path): go to a page. Use it whenever the topic changes (services -> /services, AI voice agents -> /ai-products, ready to talk to the team -> /contact).
@@ -40,6 +41,7 @@ because the visitor's screen would not follow what you say. Call the tool first,
 - start_presentation(): open the slide presentation and begin narrating. Use when the visitor asks for a presentation, overview, walkthrough or "what do you offer".
 - resume_presentation(): continue to the next slide after you answered a question mid-presentation and the visitor says to continue.
 - stop_presentation(): stop the presentation when the visitor wants to stop or switch topic.
+- add_to_cart(item_id, quantity): add a service to the shop cart (the cart is shown on /shop; navigate there first when the visitor wants to see it). remove_from_cart(item_id) removes it. view_cart() reads the cart back. After adding, say what is in the cart and offer to send it as a quote request: navigate to /contact (the cart pre-fills the message) and collect their details.
 - get_page_context(): read the current URL and visible headings if you are unsure what the visitor sees.
 
 ## Conversation flow
@@ -65,6 +67,10 @@ When a presentation is running, the SYSTEM puts each slide on screen and sends y
 ## Lead form
 If the visitor gives name, email and phone on the home page, use fill_contact_form (it fills the visible form) and read the details back. Submit only after a clear yes.
 After a form is submitted the system will message you with the exact thank-you to say; say it warmly.
+
+## Shop items (item_id: name)
+${PRODUCTS.map((p) => `${p.id}: ${p.name}`).join("; ")}
+Services have no fixed prices: the cart ends in a quote request. Never state a price.
 
 ## Company knowledge (the only facts you may state about services)
 ${KNOWLEDGE}
@@ -163,6 +169,32 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
   {
     name: "stop_presentation",
     description: "Stop the running presentation.",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "add_to_cart",
+    description: "Add a service package to the shop cart.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        item_id: { type: Type.STRING, enum: PRODUCTS.map((p) => p.id), description: "Shop item id" },
+        quantity: { type: Type.INTEGER, description: "How many (default 1)" },
+      },
+      required: ["item_id"],
+    },
+  },
+  {
+    name: "remove_from_cart",
+    description: "Remove a service from the shop cart.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: { item_id: { type: Type.STRING, enum: PRODUCTS.map((p) => p.id), description: "Shop item id" } },
+      required: ["item_id"],
+    },
+  },
+  {
+    name: "view_cart",
+    description: "Read back what is currently in the shop cart.",
     parameters: { type: Type.OBJECT, properties: {} },
   },
   {

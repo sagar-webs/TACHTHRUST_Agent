@@ -1,4 +1,5 @@
 import { PAGES } from "./agent-config";
+import { cart } from "@/lib/shop/cart";
 import { voiceUi, type Personalization, type Pitch } from "./ui-store";
 
 type Args = Record<string, unknown>;
@@ -107,6 +108,16 @@ export async function runTool(name: string, args: Args, navigate: Navigate, hook
       f.requestSubmit();
       return { ok: true, note: "Submitted; validation errors, if any, are shown on screen." };
     }
+    case "add_to_cart": {
+      const ok = cart.add(String(args.item_id ?? ""), Number(args.quantity) || 1);
+      return ok ? { ok: true, cart: cart.summary() } : { ok: false, error: "unknown item_id" };
+    }
+    case "remove_from_cart": {
+      cart.remove(String(args.item_id ?? ""));
+      return { ok: true, cart: cart.summary() };
+    }
+    case "view_cart":
+      return { ok: true, cart: cart.summary(), empty: cart.get().length === 0 };
     case "get_page_context": {
       const headings = [...document.querySelectorAll("main h1, main h2")].map((e) => e.textContent?.trim()).filter(Boolean).slice(0, 12);
       return { ok: true, path: location.pathname, headings };

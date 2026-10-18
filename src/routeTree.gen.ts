@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ShopRouteImport } from './routes/shop'
 import { Route as ServicesRouteImport } from './routes/services'
 import { Route as PresentationRouteImport } from './routes/presentation'
 import { Route as ContactRouteImport } from './routes/contact'
@@ -18,6 +19,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiLiveTokenRouteImport } from './routes/api.live-token'
 import { Route as ApiLeadRouteImport } from './routes/api.lead'
 
+const ShopRoute = ShopRouteImport.update({
+  id: '/shop',
+  path: '/shop',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ServicesRoute = ServicesRouteImport.update({
   id: '/services',
   path: '/services',
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/presentation': typeof PresentationRoute
   '/services': typeof ServicesRoute
+  '/shop': typeof ShopRoute
   '/api/lead': typeof ApiLeadRoute
   '/api/live-token': typeof ApiLiveTokenRoute
 }
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/presentation': typeof PresentationRoute
   '/services': typeof ServicesRoute
+  '/shop': typeof ShopRoute
   '/api/lead': typeof ApiLeadRoute
   '/api/live-token': typeof ApiLiveTokenRoute
 }
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/presentation': typeof PresentationRoute
   '/services': typeof ServicesRoute
+  '/shop': typeof ShopRoute
   '/api/lead': typeof ApiLeadRoute
   '/api/live-token': typeof ApiLiveTokenRoute
 }
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/presentation'
     | '/services'
+    | '/shop'
     | '/api/lead'
     | '/api/live-token'
   fileRoutesByTo: FileRoutesByTo
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/presentation'
     | '/services'
+    | '/shop'
     | '/api/lead'
     | '/api/live-token'
   id:
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/contact'
     | '/presentation'
     | '/services'
+    | '/shop'
     | '/api/lead'
     | '/api/live-token'
   fileRoutesById: FileRoutesById
@@ -130,12 +142,20 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   PresentationRoute: typeof PresentationRoute
   ServicesRoute: typeof ServicesRoute
+  ShopRoute: typeof ShopRoute
   ApiLeadRoute: typeof ApiLeadRoute
   ApiLiveTokenRoute: typeof ApiLiveTokenRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/shop': {
+      id: '/shop'
+      path: '/shop'
+      fullPath: '/shop'
+      preLoaderRoute: typeof ShopRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/services': {
       id: '/services'
       path: '/services'
@@ -202,6 +222,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   PresentationRoute: PresentationRoute,
   ServicesRoute: ServicesRoute,
+  ShopRoute: ShopRoute,
   ApiLeadRoute: ApiLeadRoute,
   ApiLiveTokenRoute: ApiLiveTokenRoute,
 }

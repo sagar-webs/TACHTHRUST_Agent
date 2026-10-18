@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { MapPin, Mail, Phone, MessageCircle, Send, Linkedin, Instagram, Facebook, Youtube, CheckCircle2 } from "lucide-react";
 import { FadeUp } from "@/components/site/motion-utils";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { submitLead } from "@/lib/lead";
+import { cart } from "@/lib/shop/cart";
 
 export const Route = createFileRoute("/contact")({
   head: () => ({
@@ -40,6 +41,14 @@ const services = [
 
 function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  // Arriving from the shop cart: pre-fill the quote request.
+  useEffect(() => {
+    const items = cart.summary();
+    const msg = formRef.current?.elements.namedItem("message") as HTMLTextAreaElement | null;
+    if (items.length && msg && !msg.value) msg.value = `Quote request from the shop cart: ${items.join(", ")}.`;
+  }, []);
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -79,7 +88,7 @@ function ContactPage() {
         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-[1.3fr_1fr] gap-8">
           {/* Form */}
           <FadeUp>
-            <form onSubmit={onSubmit} className="gradient-border-card p-8 md:p-10 space-y-5" noValidate>
+            <form ref={formRef} onSubmit={onSubmit} className="gradient-border-card p-8 md:p-10 space-y-5" noValidate>
               <div className="grid md:grid-cols-2 gap-5">
                 <Field label="Name *" name="name" placeholder="Full name" />
                 <Field label="Company" name="company" placeholder="Company (optional)" />

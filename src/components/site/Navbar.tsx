@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
+import { useCartCount } from "@/lib/shop/cart";
 import logoAsset from "@/assets/techthrust-logo.png.asset.json";
 
 const links = [
@@ -8,11 +9,13 @@ const links = [
   { to: "/services", label: "Services" },
   { to: "/ai-products", label: "AI Products" },
   { to: "/presentation", label: "Presentation" },
+  { to: "/shop", label: "Shop" },
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },
 ] as const;
 
 export default function Navbar() {
+  const count = useCartCount();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -44,7 +47,7 @@ export default function Navbar() {
                 activeProps={{ className: "px-4 py-2 text-sm text-foreground rounded-full bg-white/5" }}
                 activeOptions={{ exact: true }}
               >
-                {l.label}
+                {l.label}{l.to === "/shop" && count > 0 && <span className="ml-1.5 rounded-full bg-cyan px-1.5 py-0.5 text-[10px] font-bold text-black">{count}</span>}
               </Link>
             ))}
           </nav>
@@ -87,7 +90,7 @@ export default function Navbar() {
           <nav className="flex flex-col items-center justify-center gap-6 pt-16">
             {links.map((l) => (
               <Link key={l.to} to={l.to} onClick={() => setOpen(false)} className="font-display text-3xl font-semibold">
-                {l.label}
+                {l.label}{l.to === "/shop" && count > 0 && <span className="ml-1.5 rounded-full bg-cyan px-1.5 py-0.5 text-[10px] font-bold text-black">{count}</span>}
               </Link>
             ))}
             <a href="https://velynora.tech/" target="_blank" rel="noopener noreferrer" className="mt-4 rounded-full px-6 py-3 font-semibold text-white bg-gradient-to-r from-[#ff7a18] to-[#ff4d00]">
