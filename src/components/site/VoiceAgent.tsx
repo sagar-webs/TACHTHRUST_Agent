@@ -7,6 +7,9 @@ import { runTool } from "@/lib/voice/tools";
 import { SLIDES } from "@/lib/presentation/slides";
 import { useVoiceUi, voiceUi } from "@/lib/voice/ui-store";
 
+// After each slide the agent asks for questions; if the visitor stays silent this long, the next slide starts.
+const QUESTION_WAIT_MS = 8000;
+
 type Status = "idle" | "connecting" | "live" | "error";
 type Line = { role: "you" | "thrust"; text: string };
 
@@ -57,7 +60,7 @@ export default function VoiceAgent() {
     heardSinceNarrate.current = false;
     pausedRef.current = false;
     voiceUi.set({ presentation: { active: true, index: i } });
-    sendSystem(`Slide ${i + 1} of ${SLIDES.length} is now on screen: "${slide.title}" (${slide.tagline}). Narrate it in 3-4 natural sentences using these facts: ${slide.notes}`);
+    sendSystem(`Slide ${i + 1} of ${SLIDES.length} is now on screen: "${slide.title}" (${slide.tagline}). Narrate it in 3-4 natural sentences using these facts: ${slide.notes} Then end by asking the visitor exactly: "Do you have any questions for me?" and stop talking.`);
   }, [sendSystem]);
 
   const advance = useCallback(() => {
@@ -65,7 +68,7 @@ export default function VoiceAgent() {
     if (!active) return;
     if (index < SLIDES.length - 1) return narrate(index + 1);
     voiceUi.set({ presentation: { active: false, index } });
-    sendSystem("That was the last slide. Wrap up warmly in two sentences, invite questions, and offer to take their name, email and phone number.");
+    sendSystem("That was the last slide. Wrap up warmly in two sentences, ask \"Do you have any questions for me?\", and offer to take their name, email and phone number.");
   }, [narrate, sendSystem]);
 
   // After the model finishes a turn and its audio has played out, move on to the next slide.
@@ -75,9 +78,12 @@ export default function VoiceAgent() {
     const check = () => {
       if (!voiceUi.get().presentation.active || pausedRef.current) return;
       if ((player.current?.remainingMs() ?? 0) > 250) { advTimer.current = setTimeout(check, 400); return; }
-      advance();
+      // Audio finished: give the visitor time to ask a question before moving on.
+      advTimer.current = setTimeout(() => {
+        if (voiceUi.get().presentation.active && !pausedRef.current) advance();
+      }, QUESTION_WAIT_MS);
     };
-    advTimer.current = setTimeout(check, 2500);
+    advTimer.current = setTimeout(check, 600);
   }, [advance]);
 
   const beginPresentation = useCallback(async () => {
@@ -199,7 +205,7 @@ export default function VoiceAgent() {
   return (
     <>
       {personalization && (
-        <div className="fixed top-20 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
+        <div data-voice-agent className="fixed top-20 inset-x-0 z-40 flex justify-center px-4 pointer-events-none">
           <div className="pointer-events-auto max-w-3xl w-full gradient-border-card px-6 py-4 text-center relative">
             <button aria-label="Dismiss" onClick={() => voiceUi.set({ personalization: null })} className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
             {(personalization.business_name || personalization.industry) && (
@@ -214,7 +220,7 @@ export default function VoiceAgent() {
       )}
 
       {pitch && (
-        <div className="fixed left-4 bottom-24 z-50 w-[min(24rem,calc(100vw-2rem))] gradient-border-card p-6 shadow-2xl">
+        <div data-voice-agent className="fixed left-4 bottom-24 z-50 w-[min(24rem,calc(100vw-2rem))] gradient-border-card p-6 shadow-2xl">
           <button aria-label="Close pitch" onClick={() => voiceUi.set({ pitch: null })} className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
           <div className="font-display text-xl font-bold">{pitch.title}</div>
           <p className="mt-1 text-sm text-cyan">{pitch.tagline}</p>
@@ -227,7 +233,7 @@ export default function VoiceAgent() {
         </div>
       )}
 
-      <div className="fixed right-4 bottom-24 md:bottom-6 z-50 flex flex-col items-end gap-2">
+      <div data-voice-agent className="fixed right-4 bottom-24 md:bottom-6 z-50 flex flex-col items-end gap-2">
         {(live || status === "connecting") && lines.length > 0 && (
           <div className="max-w-[min(20rem,calc(100vw-2rem))] glass px-4 py-3 text-sm shadow-xl">
             {lines.slice(-2).map((l, i) => (

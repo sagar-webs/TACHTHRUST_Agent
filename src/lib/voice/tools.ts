@@ -26,6 +26,36 @@ function setValue(el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
   el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+
+// --- Generic page control: find and click visible buttons/links by their label ---
+const CLICKABLE = 'a[href], button, [role="button"], [role="tab"], summary, input[type="button"], input[type="submit"]';
+
+const labelOf = (el: Element) =>
+  (el.getAttribute("aria-label") || (el as HTMLElement).innerText || el.getAttribute("title") || (el as HTMLInputElement).value || "")
+    .replace(/\s+/g, " ").trim();
+
+function visibleClickables(): HTMLElement[] {
+  return [...document.querySelectorAll<HTMLElement>(CLICKABLE)].filter((el) => {
+    if (el.closest("[data-voice-agent]") || (el as HTMLButtonElement).disabled) return false;
+    const r = el.getBoundingClientRect();
+    const st = getComputedStyle(el);
+    return r.width > 0 && r.height > 0 && st.visibility !== "hidden" && st.display !== "none" && labelOf(el).length > 0;
+  });
+}
+
+function findClickable(text: string): HTMLElement | null {
+  const t = text.trim().toLowerCase();
+  const all = visibleClickables();
+  return all.find((e) => labelOf(e).toLowerCase() === t) ?? all.find((e) => labelOf(e).toLowerCase().includes(t)) ?? null;
+}
+
+function highlight(el: HTMLElement) {
+  const prev = el.style.outline;
+  el.style.outline = "3px solid #00d4ff";
+  el.style.outlineOffset = "3px";
+  setTimeout(() => { el.style.outline = prev; el.style.outlineOffset = ""; }, 900);
+}
+
 const form = () => document.querySelector<HTMLFormElement>("main form");
 
 export async function runTool(name: string, args: Args, navigate: Navigate, hooks?: Hooks): Promise<Args> {
@@ -118,9 +148,37 @@ export async function runTool(name: string, args: Args, navigate: Navigate, hook
     }
     case "view_cart":
       return { ok: true, cart: cart.summary(), empty: cart.get().length === 0 };
+    case "click_element": {
+      const label = String(args.text ?? "");
+      const el = findClickable(label);
+      if (!el) return { ok: false, error: `no visible button or link matching "${label}"`, available: visibleClickables().map(labelOf).slice(0, 30) };
+      const inForm = !!el.closest("form");
+      const isSubmit = inForm && ((el as HTMLButtonElement).type === "submit" || /submit|send/i.test(labelOf(el)));
+      if (isSubmit) return { ok: false, error: "That submits a form. Read the details back to the visitor and use submit_contact_form after they confirm." };
+      const href = el.getAttribute("href");
+      if (el instanceof HTMLAnchorElement && href && (el.origin !== location.origin || /^(mailto|tel):/.test(href))) {
+        return { ok: false, error: "That is an external link (opens outside this site). Tell the visitor about it instead of clicking.", href };
+      }
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      highlight(el);
+      await sleep(450);
+      el.click();
+      await sleep(500);
+      return { ok: true, clicked: labelOf(el), path: location.pathname };
+    }
+    case "go_back": {
+      history.back();
+      await sleep(500);
+      return { ok: true, path: location.pathname };
+    }
+    case "go_forward": {
+      history.forward();
+      await sleep(500);
+      return { ok: true, path: location.pathname };
+    }
     case "get_page_context": {
       const headings = [...document.querySelectorAll("main h1, main h2")].map((e) => e.textContent?.trim()).filter(Boolean).slice(0, 12);
-      return { ok: true, path: location.pathname, headings };
+      return { ok: true, path: location.pathname, headings, clickable: visibleClickables().map(labelOf).slice(0, 40) };
     }
     default:
       return { ok: false, error: `unknown tool ${name}` };

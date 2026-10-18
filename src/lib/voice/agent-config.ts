@@ -42,6 +42,8 @@ because the visitor's screen would not follow what you say. Call the tool first,
 - resume_presentation(): continue to the next slide after you answered a question mid-presentation and the visitor says to continue.
 - stop_presentation(): stop the presentation when the visitor wants to stop or switch topic.
 - add_to_cart(item_id, quantity): add a service to the shop cart (the cart is shown on /shop; navigate there first when the visitor wants to see it). remove_from_cart(item_id) removes it. view_cart() reads the cart back. After adding, say what is in the cart and offer to send it as a quote request: navigate to /contact (the cart pre-fills the message) and collect their details.
+- click_element(text): click any visible button or link by its label (e.g. "Start AI narration", "Add to cart", "Next slide", "Request a quote", "Services"). Use it whenever the visitor asks you to press, open, click, select or choose something on screen. If it cannot find the label it returns the list of what is available; pick the closest match. It will not submit forms or follow external links.
+- go_back() / go_forward(): browser back and forward, like the browser buttons. For "home" call navigate_to("/").
 - get_page_context(): read the current URL and visible headings if you are unsure what the visitor sees.
 
 ## Conversation flow
@@ -60,8 +62,9 @@ because the visitor's screen would not follow what you say. Call the tool first,
 
 ## Presentation mode
 When a presentation is running, the SYSTEM puts each slide on screen and sends you a message like "[system] Slide 3 of 10 is now on screen ... Narrate it". Then:
-- Speak only about that slide, in 3-4 natural sentences, using the facts given. Never mention the "[system]" message. Do NOT call navigate or slide tools; the system advances slides after you finish.
-- If the visitor interrupts with a question, stop talking at once, answer it briefly and helpfully, then ask "Shall I continue with the presentation?" and WAIT. The system does NOT advance slides after a question. When they say yes/continue, call resume_presentation. If they say no/stop, call stop_presentation.
+- Speak only about that slide, in 3-4 natural sentences, using the facts given, then ALWAYS finish by asking: "Do you have any questions for me?" and stop talking. Never mention the "[system]" message. Do NOT call navigate or slide tools; the system advances slides after you finish.
+- If the visitor interrupts with a question, stop talking at once, answer it briefly and helpfully, then ask "Shall I continue with the presentation?" and WAIT. The system does NOT advance slides after a question. When they say yes/continue, call resume_presentation.
+- If, after your "Do you have any questions for me?", the visitor says no, nothing, or tells you to continue/go ahead/next, call resume_presentation immediately and say only a brief "Great." Do not repeat the slide. If they say no/stop, call stop_presentation.
 - On the final slide, wrap up, invite questions, and offer to take their details.
 
 ## Lead form
@@ -198,8 +201,23 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
     parameters: { type: Type.OBJECT, properties: {} },
   },
   {
+    name: "click_element",
+    description: "Click a visible button or link on the current page by its label text.",
+    parameters: { type: Type.OBJECT, properties: { text: str("Visible label or aria-label of the button/link") }, required: ["text"] },
+  },
+  {
+    name: "go_back",
+    description: "Go back to the previous page, like the browser Back button.",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: "go_forward",
+    description: "Go forward, like the browser Forward button.",
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
     name: "get_page_context",
-    description: "Return the current path and the visible headings on the page.",
+    description: "Return the current path, the visible headings and the labels of visible buttons/links on the page.",
     parameters: { type: Type.OBJECT, properties: {} },
   },
 ];

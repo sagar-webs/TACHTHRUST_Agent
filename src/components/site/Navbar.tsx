@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { useCartCount } from "@/lib/shop/cart";
-import logoAsset from "@/assets/techthrust-logo.png.asset.json";
+import logoUrl from "@/assets/techthrust-logo.png";
 
 const links = [
   { to: "/", label: "Home" },
@@ -35,7 +35,7 @@ export default function Navbar() {
       >
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 group">
-            <img src={logoAsset.url} alt="Tech Thrust" className="h-18 md:h-20 w-auto" />
+            <img src={logoUrl} alt="Tech Thrust" className="h-18 md:h-20 w-auto" />
           </Link>
 
           <nav className="hidden lg:flex items-center gap-1">
@@ -82,7 +82,7 @@ export default function Navbar() {
       {open && (
         <div className="fixed inset-0 z-[60] bg-background/95 backdrop-blur-xl lg:hidden animate-fade-in">
           <div className="flex items-center justify-between p-6">
-            <img src={logoAsset.url} alt="Tech Thrust" className="h-18 w-auto" />
+            <img src={logoUrl} alt="Tech Thrust" className="h-18 w-auto" />
             <button onClick={() => setOpen(false)} aria-label="Close menu" className="p-2 rounded-md hover:bg-white/5">
               <X className="h-6 w-6" />
             </button>

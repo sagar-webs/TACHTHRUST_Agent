@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Linkedin, Mail, Phone, MapPin } from "lucide-react";
-import logoAsset from "@/assets/techthrust-logo.png.asset.json";
+import logoUrl from "@/assets/techthrust-logo.png";
 
 export default function Footer() {
   return (
@@ -9,7 +9,7 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-6 py-16 grid gap-10 md:grid-cols-2 lg:grid-cols-4">
         <div>
           <Link to="/" className="flex items-center gap-2">
-            <img src={logoAsset.url} alt="Tech Thrust" className="h-20 w-auto" />
+            <img src={logoUrl} alt="Tech Thrust" className="h-20 w-auto" />
           </Link>
           <p className="mt-4 text-sm text-muted-foreground max-w-xs">Engineering Digital Growth for Global Brands.</p>
           <div className="mt-6 space-y-2 text-sm text-muted-foreground">
