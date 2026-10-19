@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useLocation } from "@tanstack/react-router";
 import { GoogleGenAI, type LiveServerMessage, type Session } from "@google/genai";
-import { Mic, MicOff, X, Sparkles, Loader2, PhoneOff, Headset, VolumeX } from "lucide-react";
+import { Mic, MicOff, X, Sparkles, Loader2, PhoneOff, Headset, VolumeX, MessageSquare, SendHorizontal } from "lucide-react";
 import { MicCapture, Player } from "@/lib/voice/audio";
 import { runTool } from "@/lib/voice/tools";
 import { SLIDES } from "@/lib/presentation/slides";
@@ -11,7 +11,7 @@ import { useVoiceUi, voiceUi } from "@/lib/voice/ui-store";
 const QUESTION_WAIT_MS = 8000;
 
 type Status = "idle" | "connecting" | "live" | "error";
-type Line = { role: "you" | "thrust"; text: string };
+type Line = { role: "you" | "thrust"; text: string; typed?: boolean };
 
 export default function VoiceAgent() {
   const router = useRouter();
@@ -22,6 +22,12 @@ export default function VoiceAgent() {
   const [lines, setLines] = useState<Line[]>([]);
   const [muted, setMuted] = useState(false);
   const [secs, setSecs] = useState(0);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [voiceOn, setVoiceOn] = useState(false); // microphone + spoken replies active
+  const [thinking, setThinking] = useState(false);
+  const audioOnRef = useRef(false); // play the model's audio? (off in text-only chat)
+  const logRef = useRef<HTMLDivElement>(null);
   const mutedRef = useRef(false);
   mutedRef.current = muted;
   const statusRef = useRef<Status>("idle");
@@ -36,10 +42,12 @@ export default function VoiceAgent() {
   const addText = useCallback((role: Line["role"], text: string) => {
     setLines((prev) => {
       const last = prev[prev.length - 1];
-      if (last && last.role === role) return [...prev.slice(0, -1), { role, text: last.text + text }];
+      if (last && last.role === role && !last.typed) return [...prev.slice(0, -1), { role, text: last.text + text }];
       return [...prev, { role, text }].slice(-30);
     });
   }, []);
+
+  useEffect(() => { logRef.current?.scrollTo({ top: logRef.current.scrollHeight }); }, [lines, thinking, chatOpen]);
 
   useEffect(() => {
     if (status !== "live") { setSecs(0); return; }
@@ -109,7 +117,7 @@ export default function VoiceAgent() {
   const handleMessage = useCallback(async (m: LiveServerMessage) => {
     for (const p of m.serverContent?.modelTurn?.parts ?? []) {
       if (p.inlineData?.data) {
-        player.current?.play(p.inlineData.data);
+        if (audioOnRef.current) player.current?.play(p.inlineData.data);
         heardSinceNarrate.current = true;
         clearTimeout(advTimer.current);
       }
@@ -120,8 +128,8 @@ export default function VoiceAgent() {
       if (voiceUi.get().presentation.active) pausedRef.current = true;
       addText("you", m.serverContent.inputTranscription.text);
     }
-    if (m.serverContent?.outputTranscription?.text) addText("thrust", m.serverContent.outputTranscription.text);
-    if (m.serverContent?.turnComplete) onTurnComplete();
+    if (m.serverContent?.outputTranscription?.text) { setThinking(false); addText("thrust", m.serverContent.outputTranscription.text); }
+    if (m.serverContent?.turnComplete) { setThinking(false); onTurnComplete(); }
     if (m.toolCall?.functionCalls?.length) {
       const functionResponses = await Promise.all(
         m.toolCall.functionCalls.map(async (c) => {
@@ -143,9 +151,12 @@ export default function VoiceAgent() {
     session.current?.close(); session.current = null;
     setStatus("idle");
     setMuted(false);
+    setVoiceOn(false);
+    setThinking(false);
+    audioOnRef.current = false;
   }, []);
 
-  const start = useCallback(async (greet = true): Promise<boolean> => {
+  const start = useCallback(async (greet = true, withMic = true): Promise<boolean> => {
     setError(""); setStatus("connecting");
     try {
       const res = await fetch("/api/live-token", { method: "POST" });
@@ -166,12 +177,18 @@ export default function VoiceAgent() {
       });
       session.current = s;
 
-      mic.current = new MicCapture();
-      await mic.current.start((data) =>
-        !mutedRef.current && session.current?.sendRealtimeInput({ audio: { data, mimeType: "audio/pcm;rate=16000" } }),
-      );
+      if (withMic) {
+        mic.current = new MicCapture();
+        await mic.current.start((data) =>
+          !mutedRef.current && session.current?.sendRealtimeInput({ audio: { data, mimeType: "audio/pcm;rate=16000" } }),
+        );
+        audioOnRef.current = true;
+        setVoiceOn(true);
+      } else {
+        audioOnRef.current = false; // text-only chat: replies arrive as text, nothing is spoken
+      }
       setStatus("live");
-      if (greet) sendSystem(`The visitor just opened the voice assistant on page ${location.pathname}. Greet them.`);
+      if (greet && withMic) sendSystem(`The visitor just opened the voice assistant on page ${location.pathname}. Greet them.`);
       return true;
     } catch (e) {
       stop();
@@ -182,13 +199,44 @@ export default function VoiceAgent() {
     }
   }, [handleMessage, stop, sendSystem]);
 
+  // Upgrade a running text chat to voice (or start voice from scratch).
+  const enableVoice = useCallback(async () => {
+    if (!session.current) { await start(true, true); return; }
+    try {
+      mic.current = new MicCapture();
+      await mic.current.start((data) =>
+        !mutedRef.current && session.current?.sendRealtimeInput({ audio: { data, mimeType: "audio/pcm;rate=16000" } }),
+      );
+      audioOnRef.current = true;
+      setVoiceOn(true);
+    } catch {
+      setError("Microphone access was blocked.");
+    }
+  }, [start]);
+
+  // Typed message: starts a text-only session on first use.
+  const sendText = useCallback(async (raw: string) => {
+    const text = raw.trim().slice(0, 1000);
+    if (!text) return;
+    setDraft("");
+    setError("");
+    if (!session.current && !(await start(false, false))) return;
+    clearTimeout(advTimer.current);
+    if (voiceUi.get().presentation.active) pausedRef.current = true;
+    setLines((prev) => [...prev, { role: "you" as const, text, typed: true }].slice(-30));
+    setThinking(true);
+    session.current?.sendClientContent({ turns: [{ role: "user", parts: [{ text }] }], turnComplete: true });
+  }, [start]);
+
+  const closeChat = useCallback(() => { stop(); setChatOpen(false); setLines([]); }, [stop]);
+
   useEffect(() => stop, [stop]);
 
   // "Start AI Presentation" buttons on the pages ask the widget to begin (connecting first if needed).
   useEffect(() => {
     if (!presentRequest) return;
     void (async () => {
-      if (!session.current && !(await start(false))) return;
+      if (!session.current && !(await start(false, true))) return;
       await beginPresentation();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -242,18 +290,55 @@ export default function VoiceAgent() {
       )}
 
       <div data-voice-agent className="fixed right-4 bottom-24 md:bottom-6 z-50 flex flex-col items-end gap-2">
-        {(live || status === "connecting") && lines.length > 0 && (
+        {chatOpen && (
+          <div className="w-[min(23rem,calc(100vw-2rem))] gradient-border-card shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+              <div className="flex items-center gap-2 font-display font-bold text-sm">
+                <span className={`h-2.5 w-2.5 rounded-full ${live ? "bg-green-400 animate-pulse" : "bg-muted-foreground"}`} />
+                Thrust · AI Consultant
+              </div>
+              <button aria-label="Close chat" onClick={closeChat} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+            </div>
+            <div ref={logRef} className="h-72 overflow-y-auto px-4 py-3 space-y-2.5 text-sm">
+              {lines.length === 0 && (
+                <div className="rounded-2xl rounded-bl-sm bg-white/5 px-3.5 py-2.5 max-w-[85%]">Hi! I'm Thrust. Ask me about our services, or tell me about your business. You can type here or tap the mic to talk.</div>
+              )}
+              {lines.map((l, i) => (
+                <div key={i} className={`flex ${l.role === "you" ? "justify-end" : "justify-start"}`}>
+                  <div className={`px-3.5 py-2.5 max-w-[85%] rounded-2xl whitespace-pre-wrap ${l.role === "you" ? "rounded-br-sm bg-cyan/20" : "rounded-bl-sm bg-white/5"}`}>{l.text}</div>
+                </div>
+              ))}
+              {thinking && <div className="flex justify-start"><div className="rounded-2xl rounded-bl-sm bg-white/5 px-3.5 py-2.5"><Loader2 className="h-4 w-4 animate-spin text-cyan" /></div></div>}
+            </div>
+            {error && <div className="px-4 pb-2 text-xs text-red-400">{error}</div>}
+            <form onSubmit={(e) => { e.preventDefault(); void sendText(draft); }} className="flex items-center gap-2 border-t border-white/10 p-3">
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Type your message…"
+                aria-label="Type your message"
+                maxLength={1000}
+                autoComplete="off"
+                className="flex-1 min-w-0 glass px-4 py-2.5 text-sm focus:outline-none focus:border-cyan/60"
+              />
+              <button type="submit" aria-label="Send message" disabled={!draft.trim() || status === "connecting"} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full btn-glow disabled:opacity-40">
+                {status === "connecting" ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}
+              </button>
+            </form>
+          </div>
+        )}
+        {!chatOpen && voiceOn && lines.length > 0 && (
           <div className="max-w-[min(20rem,calc(100vw-2rem))] glass px-4 py-3 text-sm shadow-xl">
             {lines.slice(-2).map((l, i) => (
               <p key={i} className={l.role === "you" ? "text-muted-foreground" : ""}>{l.text.slice(-220)}</p>
             ))}
           </div>
         )}
-        {error && (
+        {!chatOpen && error && (
           <div className="max-w-[min(20rem,calc(100vw-2rem))] glass px-4 py-3 text-sm text-red-400 shadow-xl">{error}</div>
         )}
         <div className="flex items-center gap-3">
-          {(live || status === "connecting") && (
+          {voiceOn && (
             <div className="flex items-center gap-3 rounded-full glass pl-4 pr-2 py-2 shadow-xl">
               <span className="font-mono text-xs tabular-nums text-muted-foreground w-10">
                 {status === "connecting" ? <Loader2 className="h-4 w-4 animate-spin" /> : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`}
@@ -269,13 +354,18 @@ export default function VoiceAgent() {
               </button>
             </div>
           )}
+          {!chatOpen && (
+            <button aria-label="Chat with Thrust" title="Chat" onClick={() => setChatOpen(true)} className="flex h-12 w-12 items-center justify-center rounded-full glass shadow-xl hover:border-cyan/50">
+              <MessageSquare className="h-5 w-5" />
+            </button>
+          )}
           <button
             aria-label="Talk to Thrust, our AI consultant"
-            onClick={() => { if (status === "idle" || status === "error") void start(); }}
-            className={`relative flex h-16 w-16 items-center justify-center rounded-full btn-glow ${live ? "ring-4 ring-cyan/40" : "btn-glow-hover animate-pulse-glow"}`}
+            onClick={() => { if (status === "connecting" || voiceOn) return; void enableVoice(); }}
+            className={`relative flex h-16 w-16 items-center justify-center rounded-full btn-glow ${voiceOn ? "ring-4 ring-cyan/40" : "btn-glow-hover animate-pulse-glow"}`}
           >
             <Headset className="h-7 w-7" />
-            {live && <span className="absolute inset-0 rounded-full ring-2 ring-cyan/60 animate-ping" />}
+            {voiceOn && <span className="absolute inset-0 rounded-full ring-2 ring-cyan/60 animate-ping" />}
           </button>
         </div>
       </div>
