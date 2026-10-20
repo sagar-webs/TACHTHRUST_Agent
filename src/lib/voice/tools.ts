@@ -1,12 +1,11 @@
 import { PAGES } from "./agent-config";
 import { cart } from "@/lib/shop/cart";
+import { clickableLabels, clickElement, goBack, goForward, scrollPage, sleep } from "./page-control";
 import { voiceUi, type Personalization, type Pitch } from "./ui-store";
 
 type Args = Record<string, unknown>;
 type Navigate = (path: string) => Promise<void>;
 export type Hooks = { startPresentation: () => void; stopPresentation: () => void; resumePresentation: () => void };
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function waitFor<T>(get: () => T | null, ms = 3000): Promise<T | null> {
   const end = Date.now() + ms;
@@ -26,68 +25,6 @@ function setValue(el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
   el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-
-// Eased, cancellable scrolling at a readable speed. Any wheel/touch/key/mouse input by the visitor stops it.
-let scrollRaf = 0;
-// px per second, with a cap on total time so very long pages still finish in a reasonable time
-const SPEEDS: Record<string, { pxPerSec: number; maxSec: number }> = {
-  slow: { pxPerSec: 220, maxSec: 35 },
-  normal: { pxPerSec: 600, maxSec: 14 },
-  fast: { pxPerSec: 1500, maxSec: 6 },
-};
-
-function animateScroll(targetY: number, speed: string) {
-  cancelAnimationFrame(scrollRaf);
-  const startY = window.scrollY;
-  const maxY = document.documentElement.scrollHeight - window.innerHeight;
-  const to = Math.max(0, Math.min(maxY, targetY));
-  const dist = to - startY;
-  if (Math.abs(dist) < 2) return;
-  const sp = SPEEDS[speed] ?? SPEEDS.normal;
-  const dur = Math.max(500, Math.min(sp.maxSec, Math.abs(dist) / sp.pxPerSec) * 1000);
-  const events = ["wheel", "touchstart", "keydown", "mousedown"] as const;
-  const cleanup = () => events.forEach((e) => window.removeEventListener(e, cancel));
-  const cancel = () => { cancelAnimationFrame(scrollRaf); cleanup(); };
-  events.forEach((e) => window.addEventListener(e, cancel, { passive: true }));
-  const ease = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2; // gentle sine in-out
-  const t0 = performance.now();
-  const step = (now: number) => {
-    const p = Math.min(1, (now - t0) / dur);
-    window.scrollTo({ top: startY + dist * ease(p), behavior: "instant" });
-    if (p < 1) scrollRaf = requestAnimationFrame(step);
-    else cleanup();
-  };
-  scrollRaf = requestAnimationFrame(step);
-}
-
-// --- Generic page control: find and click visible buttons/links by their label ---
-const CLICKABLE = 'a[href], button, [role="button"], [role="tab"], summary, input[type="button"], input[type="submit"]';
-
-const labelOf = (el: Element) =>
-  (el.getAttribute("aria-label") || (el as HTMLElement).innerText || el.getAttribute("title") || (el as HTMLInputElement).value || "")
-    .replace(/\s+/g, " ").trim();
-
-function visibleClickables(): HTMLElement[] {
-  return [...document.querySelectorAll<HTMLElement>(CLICKABLE)].filter((el) => {
-    if (el.closest("[data-voice-agent]") || (el as HTMLButtonElement).disabled) return false;
-    const r = el.getBoundingClientRect();
-    const st = getComputedStyle(el);
-    return r.width > 0 && r.height > 0 && st.visibility !== "hidden" && st.display !== "none" && labelOf(el).length > 0;
-  });
-}
-
-function findClickable(text: string): HTMLElement | null {
-  const t = text.trim().toLowerCase();
-  const all = visibleClickables();
-  return all.find((e) => labelOf(e).toLowerCase() === t) ?? all.find((e) => labelOf(e).toLowerCase().includes(t)) ?? null;
-}
-
-function highlight(el: HTMLElement) {
-  const prev = el.style.outline;
-  el.style.outline = "3px solid #00d4ff";
-  el.style.outlineOffset = "3px";
-  setTimeout(() => { el.style.outline = prev; el.style.outlineOffset = ""; }, 900);
-}
 
 const form = () => document.querySelector<HTMLFormElement>("main form");
 
@@ -112,23 +49,8 @@ export async function runTool(name: string, args: Args, navigate: Navigate, hook
       window.scrollTo({ top: 0, behavior: "smooth" });
       return { ok: true, path };
     }
-    case "scroll_to": {
-      const t = String(args.section_text ?? "").toLowerCase();
-      const speed = ["slow", "normal", "fast"].includes(String(args.speed)) ? String(args.speed) : "normal";
-      const maxY = document.documentElement.scrollHeight - window.innerHeight;
-      if (["down", "next", "further"].includes(t)) animateScroll(window.scrollY + window.innerHeight * 0.8, speed);
-      else if (["up", "previous", "back"].includes(t)) animateScroll(window.scrollY - window.innerHeight * 0.8, speed);
-      else if (["top", "start", "beginning"].includes(t)) animateScroll(0, speed);
-      else if (["bottom", "end", "footer"].includes(t)) animateScroll(maxY, speed);
-      else {
-        const h = [...document.querySelectorAll<HTMLElement>("main h1, main h2, main h3")].find((e) =>
-          e.textContent?.toLowerCase().includes(t),
-        );
-        if (!h) return { ok: false, error: "section not found" };
-        animateScroll(h.getBoundingClientRect().top + window.scrollY - window.innerHeight / 3, speed);
-      }
-      return { ok: true, scrolling: true, speed, note: "Scrolling is animated and takes a few seconds; the visitor can stop it by scrolling themselves." };
-    }
+    case "scroll_to":
+      return scrollPage(args);
     case "show_pitch": {
       voiceUi.set({
         pitch: {
@@ -183,37 +105,15 @@ export async function runTool(name: string, args: Args, navigate: Navigate, hook
     }
     case "view_cart":
       return { ok: true, cart: cart.summary(), empty: cart.get().length === 0 };
-    case "click_element": {
-      const label = String(args.text ?? "");
-      const el = findClickable(label);
-      if (!el) return { ok: false, error: `no visible button or link matching "${label}"`, available: visibleClickables().map(labelOf).slice(0, 30) };
-      const inForm = !!el.closest("form");
-      const isSubmit = inForm && ((el as HTMLButtonElement).type === "submit" || /submit|send/i.test(labelOf(el)));
-      if (isSubmit) return { ok: false, error: "That submits a form. Read the details back to the visitor and use submit_contact_form after they confirm." };
-      const href = el.getAttribute("href");
-      if (el instanceof HTMLAnchorElement && href && (el.origin !== location.origin || /^(mailto|tel):/.test(href))) {
-        return { ok: false, error: "That is an external link (opens outside this site). Tell the visitor about it instead of clicking.", href };
-      }
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      highlight(el);
-      await sleep(450);
-      el.click();
-      await sleep(500);
-      return { ok: true, clicked: labelOf(el), path: location.pathname };
-    }
-    case "go_back": {
-      history.back();
-      await sleep(500);
-      return { ok: true, path: location.pathname };
-    }
-    case "go_forward": {
-      history.forward();
-      await sleep(500);
-      return { ok: true, path: location.pathname };
-    }
+    case "click_element":
+      return clickElement(args);
+    case "go_back":
+      return goBack();
+    case "go_forward":
+      return goForward();
     case "get_page_context": {
       const headings = [...document.querySelectorAll("main h1, main h2")].map((e) => e.textContent?.trim()).filter(Boolean).slice(0, 12);
-      return { ok: true, path: location.pathname, headings, clickable: visibleClickables().map(labelOf).slice(0, 40) };
+      return { ok: true, path: location.pathname, headings, clickable: clickableLabels() };
     }
     default:
       return { ok: false, error: `unknown tool ${name}` };

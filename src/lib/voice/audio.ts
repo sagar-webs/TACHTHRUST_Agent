@@ -39,6 +39,14 @@ export class MicCapture {
     this.ctx.createMediaStreamSource(this.stream).connect(this.node);
   }
 
+  get running() {
+    return !this.ctx || this.ctx.state === "running";
+  }
+
+  async resume() {
+    await this.ctx?.resume();
+  }
+
   stop() {
     this.node?.disconnect();
     this.stream?.getTracks().forEach((t) => t.stop());
@@ -66,6 +74,14 @@ export class Player {
     this.next += buf.duration;
     this.sources.add(src);
     src.onended = () => this.sources.delete(src);
+  }
+
+  get running() {
+    return this.ctx.state === "running";
+  }
+
+  async resume() {
+    await this.ctx.resume();
   }
 
   /** Milliseconds of queued audio still to be played. */

@@ -33,3 +33,6 @@ dist-ssr
 .npm-cache
 
 .env
+
+# built by `npm run build:widget` (Shopify embed script)
+public/shopify-agent.js
