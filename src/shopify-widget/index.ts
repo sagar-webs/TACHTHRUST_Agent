@@ -7,17 +7,18 @@ import { STYLES, ICONS } from "./ui";
 
 type Line = { role: "you" | "thrust"; text: string; typed?: boolean };
 type Status = "idle" | "connecting" | "live" | "error";
-type Saved = { open: boolean; lines: Line[]; resumeVoice: number };
+type Resume = { ts: number; voice: boolean; agentNav: boolean };
+type Saved = { open: boolean; lines: Line[]; resume: Resume | null };
 
 const script = document.currentScript as HTMLScriptElement | null;
 const API = script?.src ? new URL(script.src).origin : location.origin;
 const ACCENT = script?.dataset.accent || "#10b981";
 const TITLE = script?.dataset.title || "Shopping assistant";
 const KEY = "techthrust-shop-agent";
-const RESUME_WINDOW_MS = 20_000;
+const RESUME_WINDOW_MS = 60_000;
 
 const load = (): Saved => {
-  try { return { open: false, lines: [], resumeVoice: 0, ...JSON.parse(sessionStorage.getItem(KEY) ?? "{}") }; } catch { return { open: false, lines: [], resumeVoice: 0 }; }
+  try { return { open: false, lines: [], resume: null, ...JSON.parse(sessionStorage.getItem(KEY) ?? "{}") }; } catch { return { open: false, lines: [], resume: null }; }
 };
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -30,6 +31,8 @@ class Assistant {
   private status: Status = "idle";
   private voiceOn = false;
   private needsTap = false;
+  private reconnecting = false;
+  private agentNav = false; // the assistant (not the visitor) caused the page change
   private muted = false;
   private thinking = false;
   private error = "";
@@ -48,14 +51,20 @@ class Assistant {
     this.host.style.cssText = "all:initial;position:fixed;z-index:2147483000;right:0;bottom:0;";
     document.body.appendChild(this.host);
     this.render();
-    // The storefront is multi-page: remember to reconnect a live call on the next page.
-    addEventListener("pagehide", () => this.persist(this.voiceOn));
-    if (Date.now() - this.saved.resumeVoice < RESUME_WINDOW_MS) void this.connect(true, true);
+    // The storefront is multi-page: every page change reloads the script, so remember to reconnect on the next page.
+    addEventListener("pagehide", () => this.persistLive());
+    const r = this.saved.resume;
+    if (r && Date.now() - r.ts < RESUME_WINDOW_MS) void this.connect(r.voice, { resumed: true, speak: r.agentNav });
   }
 
   // ---------- state ----------
-  private persist(resumeVoice = false) {
-    try { sessionStorage.setItem(KEY, JSON.stringify({ open: this.open, lines: this.lines.slice(-20), resumeVoice: resumeVoice ? Date.now() : 0 } satisfies Saved)); } catch { /* storage unavailable */ }
+  private persist(resume: Resume | null = null) {
+    try { sessionStorage.setItem(KEY, JSON.stringify({ open: this.open, lines: this.lines.slice(-20), resume } satisfies Saved)); } catch { /* storage unavailable */ }
+  }
+
+  /** Called as the page unloads: a live chat or call should come back on the next page. */
+  private persistLive() {
+    this.persist(this.status === "live" || this.reconnecting ? { ts: Date.now(), voice: this.voiceOn, agentNav: this.agentNav } : null);
   }
 
   private addLine(role: Line["role"], text: string, typed = false) {
@@ -63,17 +72,20 @@ class Assistant {
     if (!typed && last && last.role === role && !last.typed) last.text += text;
     else this.lines.push({ role, text, typed });
     this.lines = this.lines.slice(-30);
-    this.persist();
+    this.persistLive();
     this.render();
   }
 
   private context(): string {
     const recent = this.lines.slice(-8).map((l) => `${l.role === "you" ? "Visitor" : "You"}: ${l.text}`).join("\n");
-    return `[system] The visitor is on ${location.pathname} ("${document.title}"). ${recent ? `Earlier in this conversation (context only, do not repeat it):\n${recent}` : ""}`;
+    const lang = document.documentElement.lang || "en";
+    return `[system] The visitor is on ${location.pathname} ("${document.title}"). The store language is "${lang}": keep using the language of the conversation so far (default ${lang.split("-")[0]}). ${recent ? `Earlier in this conversation (context only, do not repeat it):\n${recent}` : ""}`;
   }
 
   // ---------- connection ----------
-  private async connect(withMic: boolean, resumed = false): Promise<boolean> {
+  private async connect(withMic: boolean, opts: { resumed?: boolean; speak?: boolean } = {}): Promise<boolean> {
+    const resumed = !!opts.resumed;
+    this.reconnecting = resumed;
     this.error = ""; this.status = "connecting"; this.render();
     try {
       const res = await fetch(`${API}/api/live-token?agent=shopify`, { method: "POST" });
@@ -92,12 +104,21 @@ class Assistant {
       });
       if (withMic) await this.startMic();
       this.status = "live";
+      this.reconnecting = false;
       this.render();
-      if (resumed) this.send(`${this.context()} The page just changed (or reloaded) as part of this conversation. Continue naturally: say at most one short sentence about where the visitor is now. Do NOT greet again.`);
-      else if (withMic) this.send(`[system] The visitor just opened the voice assistant on ${location.pathname} ("${document.title}"). Greet them briefly.`);
+      if (resumed) {
+        // Give the new session its memory back. If the assistant itself changed the page it says one short line;
+        // if the visitor browsed on their own it stays quiet until spoken to.
+        const speak = !!opts.speak;
+        const note = speak
+          ? "You just moved the visitor to this page as part of the conversation. Say at most ONE short sentence about it and continue helping. Do NOT greet again."
+          : "The visitor moved to this page themselves. Do NOT speak now; wait for them. Do NOT greet again.";
+        this.session?.sendClientContent({ turns: [{ role: "user", parts: [{ text: `${this.context()} ${note}` }] }], turnComplete: speak });
+      } else if (withMic) this.send(`[system] The visitor just opened the voice assistant on ${location.pathname} ("${document.title}"). Greet them briefly.`);
       this.needsContext = false;
       return true;
     } catch (e) {
+      this.reconnecting = false;
       this.hangup();
       const msg = e instanceof Error ? e.message : "Something went wrong";
       this.error = /permission|denied|notallowed/i.test(msg) ? "Microphone access was blocked." : msg;
@@ -125,6 +146,7 @@ class Assistant {
   }
 
   private hangup() {
+    this.persist(null);
     this.teardownAudio();
     this.session?.close(); this.session = null;
     this.status = "idle";
@@ -174,7 +196,7 @@ class Assistant {
           id: c.id,
           name: c.name,
           response: await runStoreTool(c.name ?? "", (c.args ?? {}) as Record<string, unknown>, {
-            beforeNavigate: () => this.persist(this.voiceOn),
+            beforeNavigate: () => { this.agentNav = true; this.persistLive(); },
             onCart: (cart, added) => this.showToast(added ? `Added ${added}` : "Cart updated", cart),
           }),
         })),
@@ -196,7 +218,7 @@ class Assistant {
     const mm = `${Math.floor(this.secs / 60)}:${String(this.secs % 60).padStart(2, "0")}`;
     const chat = this.open ? `
       <section class="panel" role="dialog" aria-label="${esc(TITLE)}">
-        <header><span class="dot ${live ? "on" : ""}"></span><b>${esc(TITLE)}</b><button data-a="close" aria-label="Close chat">${ICONS.x}</button></header>
+        <header><span class="dot ${live ? "on" : ""}"></span><b>${esc(TITLE)}</b>${this.reconnecting ? `<small>Reconnecting…</small>` : ""}<button data-a="close" aria-label="Close chat">${ICONS.x}</button></header>
         <div class="log" id="log">
           ${this.lines.length === 0 ? `<div class="msg bot">Hi! Tell me what you're looking for and I'll help you find it. You can type here or tap the headset to talk.</div>` : ""}
           ${this.lines.map((l) => `<div class="row ${l.role === "you" ? "me" : ""}"><div class="msg ${l.role === "you" ? "me" : "bot"}">${esc(l.text)}</div></div>`).join("")}
@@ -209,6 +231,7 @@ class Assistant {
       <div class="toast"><b>${esc(this.toast.text)}</b>${this.toast.cart ? `<span>${this.toast.cart.item_count} item${this.toast.cart.item_count === 1 ? "" : "s"} · ${esc(this.toast.cart.total)}</span>` : ""}
         <div><a href="/cart">View cart</a><a href="/checkout" class="solid">Checkout</a></div></div>` : "";
     const caption = !this.open && this.voiceOn && this.lines.length ? `<div class="toast cap">${esc(this.lines[this.lines.length - 1].text.slice(-200))}</div>` : "";
+    const tap = this.needsTap && !this.open ? `<div class="toast cap">Tap the headset to continue talking.</div>` : "";
     const err = !this.open && this.error ? `<div class="toast err">${esc(this.error)}</div>` : "";
     const pill = this.voiceOn ? `
       <div class="pill"><span class="t">${this.status === "connecting" ? ICONS.spin : mm}</span>
@@ -216,7 +239,7 @@ class Assistant {
         <button data-a="mute" aria-label="${this.muted ? "Unmute" : "Mute"}">${this.muted ? ICONS.micOff : ICONS.mic}</button>
         <button data-a="end" class="red" aria-label="End call">${ICONS.x}</button></div>` : "";
     this.root.innerHTML = `<style>${STYLES.replace(/__ACCENT__/g, ACCENT)}</style>
-      <div class="wrap">${chat}${cart}${caption}${err}
+      <div class="wrap">${chat}${cart}${tap}${caption}${err}
         <div class="bar">${pill}
           ${this.open ? "" : `<button class="chat" data-a="open" aria-label="Chat with the assistant" title="Chat">${ICONS.chat}</button>`}
           <button class="fab ${this.voiceOn ? "live" : ""}" data-a="voice" aria-label="${this.needsTap ? "Tap to continue talking" : "Talk to the assistant"}">${this.needsTap ? `<span class="tap">Tap to continue</span>` : ICONS.headset}</button>
@@ -228,7 +251,7 @@ class Assistant {
 
   private bind() {
     const on = (sel: string, fn: () => void) => this.root.querySelector(`[data-a="${sel}"]`)?.addEventListener("click", fn);
-    on("open", () => { this.open = true; this.persist(); this.render(); });
+    on("open", () => { this.open = true; this.persistLive(); this.render(); });
     on("close", () => { this.hangup(); this.open = false; this.lines = []; this.persist(); this.render(); });
     on("voice", () => { void this.enableVoice(); });
     on("mute", () => { this.muted = !this.muted; this.render(); });

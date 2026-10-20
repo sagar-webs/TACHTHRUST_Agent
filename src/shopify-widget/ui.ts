@@ -32,6 +32,7 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;displa
 .panel header{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid #1f2937}
 .panel header b{flex:1;font-size:14px}
 .panel header button{color:#9ca3af}
+.panel header small{color:#fbbf24;font-size:11px}
 .dot{width:9px;height:9px;border-radius:50%;background:#6b7280}.dot.on{background:#34d399}
 .log{height:300px;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:1.4}
 .row{display:flex}.row.me{justify-content:flex-end}

@@ -1,4 +1,4 @@
-import { Type, type FunctionDeclaration } from "@google/genai";
+import { Behavior, Type, type FunctionDeclaration } from "@google/genai";
 import { SLIDES } from "@/lib/presentation/slides";
 import { PRODUCTS } from "@/lib/shop/catalog";
 
@@ -56,6 +56,10 @@ because the visitor's screen would not follow what you say. Call the tool first,
 ## Text chat
 The visitor may TYPE instead of speaking; typed messages look like normal user turns. Treat them exactly the same: same tools, same language rule, same brevity. When they type, they are reading, so keep answers short and scannable and put key facts first.
 
+## Output rules (very important)
+- Speak or write ONLY the final reply to the visitor. NEVER output your reasoning, plans, notes, headings, "Thoughts", bullet points or markdown. Never repeat a sentence you already said.
+- Do not call get_page_context unless you really need to know what is on screen.
+
 ## Pace and turn-taking (very important)
 - Speak slowly and calmly, in short sentences, with natural pauses. Never rush.
 - The visitor always has priority. The moment they start speaking, stop. Never talk over them.
@@ -83,11 +87,11 @@ Services have no fixed prices: the cart ends in a quote request. Never state a p
 ## Company knowledge (the only facts you may state about services)
 ${KNOWLEDGE}
 
-## Language
-You are fully multilingual. Detect the language the visitor speaks and reply in that language, in every turn, switching immediately if they switch.
-If you are unsure, greet in English and follow their language from their first reply. Keep tool arguments (paths, form values like service names, emails, phone numbers) in their original/English form,
-but pitch text (show_pitch, personalize_site) in the visitor's language. When narrating a slide, translate the facts naturally into the visitor's language; keep brand names (TechThrust, Velynora, Google Ads, META, Shopify) unchanged.
-
+## Language (very important: do not switch by accident)
+- Reply in ENGLISH by default and keep the SAME language for the whole conversation.
+- Switch only when the visitor clearly speaks or writes a full sentence in another language, or explicitly asks you to. A single foreign word, a name, an accent, background noise or an unclear transcript is NOT a reason to switch.
+- If you are unsure which language they used, stay in your current language. Switch back if they return to it. Never mix two languages in one reply.
+- Keep tool arguments (paths, form values like service names, emails, phone numbers) in English. Pitch text (show_pitch, personalize_site) follows the conversation language. When narrating a slide, translate the facts naturally into the conversation language; keep brand names (TechThrust, Velynora, Google Ads, META, Shopify) unchanged.
 Our business is mainly in Dubai/UAE and India, so expect English, Arabic (Gulf), Hindi and regional Indian languages (Tamil, Telugu, Malayalam, Kannada, Marathi, Bengali, Gujarati, Urdu) most often.
 Use natural, polite register for each (formal Arabic/Hindi-Urdu courtesies are welcome). Mixed speech like Hinglish or Arabic-English is fine: mirror the visitor.
 
@@ -101,7 +105,7 @@ Use natural, polite register for each (formal Arabic/Hindi-Urdu courtesies are w
 
 const str = (description: string) => ({ type: Type.STRING, description });
 
-export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
+const RAW_TOOLS: FunctionDeclaration[] = [
   {
     name: "navigate_to",
     description: "Navigate the visitor's browser to a page of the website.",
@@ -227,3 +231,6 @@ export const TOOL_DECLARATIONS: FunctionDeclaration[] = [
     parameters: { type: Type.OBJECT, properties: {} },
   },
 ];
+
+// Blocking calls: the model waits for the tool result before it speaks, so it never answers twice or talks over the action.
+export const TOOL_DECLARATIONS: FunctionDeclaration[] = RAW_TOOLS.map((t) => ({ ...t, behavior: Behavior.BLOCKING }));
